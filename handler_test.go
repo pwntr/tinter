@@ -1,4 +1,4 @@
-package tint_test
+package tinter
 
 import (
 	"bytes"
@@ -12,14 +12,12 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/lmittmann/tint"
 )
 
 var faketime = time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 
 func Example() {
-	slog.SetDefault(slog.New(tint.NewHandler(os.Stderr, &tint.Options{
+	slog.SetDefault(slog.New(NewHandler(os.Stderr, &Options{
 		Level:      slog.LevelDebug,
 		TimeFormat: time.Kitchen,
 	})))
@@ -27,7 +25,7 @@ func Example() {
 	slog.Info("Starting server", "addr", ":8080", "env", "production")
 	slog.Debug("Connected to DB", "db", "myapp", "host", "localhost:5432")
 	slog.Warn("Slow request", "method", "GET", "path", "/users", "duration", 497*time.Millisecond)
-	slog.Error("DB connection lost", tint.Err(errors.New("connection reset")), "db", "myapp")
+	slog.Error("DB connection lost", "err", errors.New("connection reset"), "db", "myapp")
 	slog.Error("Flux capacitor gone", slog.Any("fail", errors.New("arbitrary error passed")), "engine", 42)
 	// Output:
 }
@@ -41,7 +39,7 @@ func TestHandler(t *testing.T) {
 	}
 
 	tests := []struct {
-		Opts *tint.Options
+		Opts *Options
 		F    func(l *slog.Logger)
 		Want string
 	}{
@@ -53,13 +51,13 @@ func TestHandler(t *testing.T) {
 		},
 		{
 			F: func(l *slog.Logger) {
-				l.Error("test", tint.Err(errors.New("fail")))
+				l.Error("test", "err", errors.New("fail"))
 			},
 			Want: `Nov 10 23:00:00.000 ERR test err=fail`,
 		},
 		{
 			F: func(l *slog.Logger) {
-				l.Info("test", slog.Group("group", slog.String("key", "val"), tint.Err(errors.New("fail"))))
+				l.Info("test", slog.Group("group", slog.String("key", "val"), slog.Any("err", errors.New("fail"))))
 			},
 			Want: `Nov 10 23:00:00.000 INF test group.key=val group.err=fail`,
 		},
@@ -94,16 +92,16 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INF test slice="[a b c]" map="map[a:1 b:2 c:3]"`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				AddSource: true,
 			},
 			F: func(l *slog.Logger) {
 				l.Info("test", "key", "val")
 			},
-			Want: `Nov 10 23:00:00.000 INF tint/handler_test.go:101 test key=val`,
+			Want: `Nov 10 23:00:00.000 INF tinter/handler_test.go:99 test key=val`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				TimeFormat: time.Kitchen,
 			},
 			F: func(l *slog.Logger) {
@@ -112,7 +110,7 @@ func TestHandler(t *testing.T) {
 			Want: `11:00PM INF test key=val`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: drop(slog.TimeKey),
 			},
 			F: func(l *slog.Logger) {
@@ -121,7 +119,7 @@ func TestHandler(t *testing.T) {
 			Want: `INF test key=val`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: drop(slog.LevelKey),
 			},
 			F: func(l *slog.Logger) {
@@ -130,7 +128,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 test key=val`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: drop(slog.MessageKey),
 			},
 			F: func(l *slog.Logger) {
@@ -139,7 +137,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INF key=val`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: drop(slog.TimeKey, slog.LevelKey, slog.MessageKey),
 			},
 			F: func(l *slog.Logger) {
@@ -148,7 +146,7 @@ func TestHandler(t *testing.T) {
 			Want: `key=val`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: drop("key"),
 			},
 			F: func(l *slog.Logger) {
@@ -157,7 +155,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INF test`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: drop("key"),
 			},
 			F: func(l *slog.Logger) {
@@ -166,7 +164,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INF test group.key=val group.key2=val2`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 					if a.Key == "key" && len(groups) == 1 && groups[0] == "group" {
 						return slog.Attr{}
@@ -180,7 +178,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INF test group.key2=val2`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: replace(slog.IntValue(42), slog.TimeKey),
 			},
 			F: func(l *slog.Logger) {
@@ -189,7 +187,7 @@ func TestHandler(t *testing.T) {
 			Want: `42 INF test key=val`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: replace(slog.StringValue("INFO"), slog.LevelKey),
 			},
 			F: func(l *slog.Logger) {
@@ -198,7 +196,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INFO test key=val`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: replace(slog.IntValue(42), slog.MessageKey),
 			},
 			F: func(l *slog.Logger) {
@@ -207,7 +205,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INF 42 key=val`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: replace(slog.IntValue(42), "key"),
 			},
 			F: func(l *slog.Logger) {
@@ -216,7 +214,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INF test key=42 key2=val2`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 					return slog.Attr{}
 				},
@@ -252,7 +250,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INF+1 test`,
 		},
 		{
-			Opts: &tint.Options{
+			Opts: &Options{
 				Level: slog.LevelDebug - 1,
 			},
 			F: func(l *slog.Logger) {
@@ -268,12 +266,12 @@ func TestHandler(t *testing.T) {
 		},
 		{ // https://github.com/lmittmann/tint/issues/15
 			F: func(l *slog.Logger) {
-				l.Error("test", tint.Err(nil))
+				l.Error("test", slog.Any("err", nil))
 			},
 			Want: `Nov 10 23:00:00.000 ERR test err=<nil>`,
 		},
 		{ // https://github.com/lmittmann/tint/pull/26
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 					if a.Key == slog.TimeKey && len(groups) == 0 {
 						return slog.Time(slog.TimeKey, a.Value.Time().Add(24*time.Hour))
@@ -294,7 +292,7 @@ func TestHandler(t *testing.T) {
 		},
 		{ // https://github.com/lmittmann/tint/pull/30
 			// drop built-in attributes in a grouped log
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: drop(slog.TimeKey, slog.LevelKey, slog.MessageKey, slog.SourceKey),
 				AddSource:   true,
 			},
@@ -304,7 +302,7 @@ func TestHandler(t *testing.T) {
 			Want: `group.key=val`,
 		},
 		{ // https://github.com/lmittmann/tint/issues/36
-			Opts: &tint.Options{
+			Opts: &Options{
 				ReplaceAttr: func(g []string, a slog.Attr) slog.Attr {
 					if len(g) == 0 && a.Key == slog.LevelKey {
 						_ = a.Value.Any().(slog.Level)
@@ -318,7 +316,7 @@ func TestHandler(t *testing.T) {
 			Want: `Nov 10 23:00:00.000 INF test`,
 		},
 		{ // https://github.com/lmittmann/tint/issues/37
-			Opts: &tint.Options{
+			Opts: &Options{
 				AddSource: true,
 				ReplaceAttr: func(g []string, a slog.Attr) slog.Attr {
 					return a
@@ -327,12 +325,12 @@ func TestHandler(t *testing.T) {
 			F: func(l *slog.Logger) {
 				l.Info("test")
 			},
-			Want: `Nov 10 23:00:00.000 INF tint/handler_test.go:328 test`,
+			Want: `Nov 10 23:00:00.000 INF tinter/handler_test.go:326 test`,
 		},
 		{ // https://github.com/lmittmann/tint/issues/44
 			F: func(l *slog.Logger) {
 				l = l.WithGroup("group")
-				l.Error("test", tint.Err(errTest))
+				l.Error("test", slog.Any("err", errTest))
 			},
 			Want: `Nov 10 23:00:00.000 ERR test group.err=fail`,
 		},
@@ -347,7 +345,7 @@ func TestHandler(t *testing.T) {
 		},
 		{ // https://github.com/lmittmann/tint/pull/66
 			F: func(l *slog.Logger) {
-				errAttr := tint.Err(errors.New("fail"))
+				errAttr := slog.Any("error", errors.New("fail"))
 				errAttr.Key = "error"
 				l.Error("test", errAttr)
 			},
@@ -359,10 +357,10 @@ func TestHandler(t *testing.T) {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			var buf bytes.Buffer
 			if test.Opts == nil {
-				test.Opts = &tint.Options{}
+				test.Opts = &Options{}
 			}
 			test.Opts.NoColor = true
-			l := slog.New(tint.NewHandler(&buf, test.Opts))
+			l := slog.New(NewHandler(&buf, test.Opts))
 			test.F(l)
 
 			got := strings.TrimRight(buf.String(), "\n")
@@ -433,7 +431,7 @@ func TestReplaceAttr(t *testing.T) {
 			slogLogger.Log(context.TODO(), slog.LevelInfo, "", test...)
 
 			tintRecord := make([]replaceAttrParams, 0)
-			tintLogger := slog.New(tint.NewHandler(io.Discard, &tint.Options{
+			tintLogger := slog.New(NewHandler(io.Discard, &Options{
 				ReplaceAttr: replaceAttrRecorder(&tintRecord),
 			}))
 			tintLogger.Log(context.TODO(), slog.LevelInfo, "", test...)
@@ -457,7 +455,7 @@ func BenchmarkLogAttrs(b *testing.B) {
 		Name string
 		H    slog.Handler
 	}{
-		{"tint", tint.NewHandler(io.Discard, nil)},
+		{"tint", NewHandler(io.Discard, nil)},
 		{"text", slog.NewTextHandler(io.Discard, nil)},
 		{"json", slog.NewJSONHandler(io.Discard, nil)},
 		{"discard", new(discarder)},

@@ -1,4 +1,4 @@
-package tint
+package tinter
 
 import "sync"
 

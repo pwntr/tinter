@@ -1,3 +1,3 @@
-module github.com/lmittmann/tint
+module github.com/pwntr/tinter
 
 go 1.21

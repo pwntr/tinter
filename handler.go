@@ -1,5 +1,5 @@
 /*
-Package tint implements a zero-dependency [slog.Handler] that writes tinted
+Package tinter implements a zero-dependency [slog.Handler] that writes tinted
 (colorized) logs. The output format is inspired by the [zerolog.ConsoleWriter]
 and [slog.TextHandler].
 
@@ -14,7 +14,7 @@ See [slog.HandlerOptions] for details.
 
 	w := os.Stderr
 	logger := slog.New(
-		tint.NewHandler(w, &tint.Options{
+		tinter.NewHandler(w, &tinter.Options{
 			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 				if a.Key == slog.TimeKey && len(groups) == 0 {
 					return slog.Attr{}
@@ -32,7 +32,7 @@ use e.g. the [go-isatty] package.
 
 	w := os.Stderr
 	logger := slog.New(
-		tint.NewHandler(w, &tint.Options{
+		tinter.NewHandler(w, &tinter.Options{
 			NoColor: !isatty.IsTerminal(w.Fd()),
 		}),
 	)
@@ -43,14 +43,14 @@ Color support on Windows can be added by using e.g. the [go-colorable] package.
 
 	w := os.Stderr
 	logger := slog.New(
-		tint.NewHandler(colorable.NewColorable(w), nil),
+		tinter.NewHandler(colorable.NewColorable(w), nil),
 	)
 
 [zerolog.ConsoleWriter]: https://pkg.go.dev/github.com/rs/zerolog#ConsoleWriter
 [go-isatty]: https://pkg.go.dev/github.com/mattn/go-isatty
 [go-colorable]: https://pkg.go.dev/github.com/mattn/go-colorable
 */
-package tint
+package tinter
 
 import (
 	"context"
@@ -423,17 +423,4 @@ func needsQuoting(s string) bool {
 		}
 	}
 	return false
-}
-
-type tintError struct{ error }
-
-// Err returns a tinted (colorized) [slog.Attr] that will be written in red color
-// by the [tint.Handler]. When used with any other [slog.Handler], it behaves as
-//
-//	slog.Any("err", err)
-func Err(err error) slog.Attr {
-	if err != nil {
-		err = tintError{err}
-	}
-	return slog.Any("err", err)
 }
