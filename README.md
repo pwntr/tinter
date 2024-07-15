@@ -22,13 +22,13 @@ go get github.com/pwntr/tinter
 
 * Uses go-native `error` values only (anything that implements the `error` interface), which are passed in as k/v pairs or `slog.Attr` attributes to colorize any errors that appear in the log, not only errors that had to be previously wrapped explicitly (ref. to the original [`tint.Err` type wrapper](https://github.com/lmittmann/tint/blob/368de753ea2a714981dac3bed7390460b9ae4a93/handler.go#L427)).
 
-    The key for the `error` you pass can be anything you like, as long as the value implements the `error` interface. 
+    The key for the `error` you pass can be any string you like, as long as the value implements the `error` interface. 
 
-* Uses an opinionated faint magenta as the foreground color of the debug level text, to increase readability when glancing over logs, by visually separating it more clearly from the log message itself.
+* Uses faint magenta as the foreground color of the debug level text, to increase readability when glancing over logs, by visually separating it more clearly from the log message itself.
 
-* Eventually handle all errors in the current code (meaning, don't ignore returned errors), so that the linters (and users) are happy.
+* Handles all errors in the current code (meaning, doesn't ignore any returned errors), so that the linters (and users) are happy. Also reduced the buffer implementation to methods that are actually used to keep the code lean.
 
-The primary goal of this fork is to have a tinted logger avaiable that doesn't require exposure of the `tinter` API to deeper levels of your own business logic or logging API surface - it's a simple drop-in handler that you initialize once with your logger instance and are done. The rest of your app then logs as normal with the default `slog` API surface.
+The primary goal of this fork is to have a tinted logger avaiable that doesn't require exposure of the `tinter` API to deeper levels of your own business logic or logging package API surface - it's a simple drop-in handler that you initialize once with your logger instance and are done. The rest of your app then logs as normal with the default `slog` API surface.
 
 ### Note to users migrating from `lmittmann/tint`
 
