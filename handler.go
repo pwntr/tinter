@@ -145,6 +145,7 @@ type handler struct {
 	noColor     bool
 }
 
+// clone returns a shallow copy of the handler
 func (h *handler) clone() *handler {
 	return &handler{
 		attrsPrefix: h.attrsPrefix,
@@ -159,10 +160,12 @@ func (h *handler) clone() *handler {
 	}
 }
 
+// Enabled returns true if the level is enabled
 func (h *handler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.level.Level()
 }
 
+// Handle writes a log record to the handler's writer
 func (h *handler) Handle(_ context.Context, r slog.Record) error {
 	// get a buffer from the sync pool
 	buf := newBuffer()
@@ -175,24 +178,24 @@ func (h *handler) Handle(_ context.Context, r slog.Record) error {
 		val := r.Time.Round(0) // strip monotonic to match Attr behavior
 		if rep == nil {
 			h.appendTime(buf, r.Time)
-			buf.WriteByte(' ')
+			buf.WriteChar(' ')
 		} else if a := rep(nil /* groups */, slog.Time(slog.TimeKey, val)); a.Key != "" {
 			if a.Value.Kind() == slog.KindTime {
 				h.appendTime(buf, a.Value.Time())
 			} else {
 				h.appendValue(buf, a.Value, false)
 			}
-			buf.WriteByte(' ')
+			buf.WriteChar(' ')
 		}
 	}
 
 	// write level
 	if rep == nil {
 		h.appendLevel(buf, r.Level)
-		buf.WriteByte(' ')
+		buf.WriteChar(' ')
 	} else if a := rep(nil /* groups */, slog.Any(slog.LevelKey, r.Level)); a.Key != "" {
 		h.appendValue(buf, a.Value, false)
-		buf.WriteByte(' ')
+		buf.WriteChar(' ')
 	}
 
 	// write source
@@ -208,10 +211,10 @@ func (h *handler) Handle(_ context.Context, r slog.Record) error {
 
 			if rep == nil {
 				h.appendSource(buf, src)
-				buf.WriteByte(' ')
+				buf.WriteChar(' ')
 			} else if a := rep(nil /* groups */, slog.Any(slog.SourceKey, src)); a.Key != "" {
 				h.appendValue(buf, a.Value, false)
-				buf.WriteByte(' ')
+				buf.WriteChar(' ')
 			}
 		}
 	}
@@ -219,10 +222,10 @@ func (h *handler) Handle(_ context.Context, r slog.Record) error {
 	// write message
 	if rep == nil {
 		buf.WriteString(r.Message)
-		buf.WriteByte(' ')
+		buf.WriteChar(' ')
 	} else if a := rep(nil /* groups */, slog.String(slog.MessageKey, r.Message)); a.Key != "" {
 		h.appendValue(buf, a.Value, false)
-		buf.WriteByte(' ')
+		buf.WriteChar(' ')
 	}
 
 	// write handler attributes
@@ -248,6 +251,7 @@ func (h *handler) Handle(_ context.Context, r slog.Record) error {
 	return err
 }
 
+// WithAttrs returns a new handler with the given attributes
 func (h *handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	if len(attrs) == 0 {
 		return h
@@ -265,6 +269,7 @@ func (h *handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return h2
 }
 
+// WithGroup returns a new handler with the given group name
 func (h *handler) WithGroup(name string) slog.Handler {
 	if name == "" {
 		return h
@@ -275,12 +280,14 @@ func (h *handler) WithGroup(name string) slog.Handler {
 	return h2
 }
 
+// appendTime appends a time to the buffer
 func (h *handler) appendTime(buf *buffer, t time.Time) {
 	buf.WriteStringIf(!h.noColor, ansiFaint)
 	*buf = t.AppendFormat(*buf, h.timeFormat)
 	buf.WriteStringIf(!h.noColor, ansiReset)
 }
 
+// appendLevel appends a level to the buffer
 func (h *handler) appendLevel(buf *buffer, level slog.Level) {
 	switch {
 	case level < slog.LevelInfo:
@@ -306,25 +313,28 @@ func (h *handler) appendLevel(buf *buffer, level slog.Level) {
 	}
 }
 
+// appendLevelDelta appends a level delta to the buffer
 func appendLevelDelta(buf *buffer, delta slog.Level) {
 	if delta == 0 {
 		return
 	} else if delta > 0 {
-		buf.WriteByte('+')
+		buf.WriteChar('+')
 	}
 	*buf = strconv.AppendInt(*buf, int64(delta), 10)
 }
 
+// appendSource appends source details to the buffer
 func (h *handler) appendSource(buf *buffer, src *slog.Source) {
 	dir, file := filepath.Split(src.File)
 
 	buf.WriteStringIf(!h.noColor, ansiFaint)
 	buf.WriteString(filepath.Join(filepath.Base(dir), file))
-	buf.WriteByte(':')
+	buf.WriteChar(':')
 	buf.WriteString(strconv.Itoa(src.Line))
 	buf.WriteStringIf(!h.noColor, ansiReset)
 }
 
+// appendAttr appends an attribute to the buffer
 func (h *handler) appendAttr(buf *buffer, attr slog.Attr, groupsPrefix string, groups []string) {
 	attr.Value = attr.Value.Resolve()
 	if rep := h.replaceAttr; rep != nil && attr.Value.Kind() != slog.KindGroup {
@@ -345,23 +355,24 @@ func (h *handler) appendAttr(buf *buffer, attr slog.Attr, groupsPrefix string, g
 			h.appendAttr(buf, groupAttr, groupsPrefix, groups)
 		}
 	} else if err, ok := attr.Value.Any().(error); ok {
-		// append tintError
-		h.appendTintError(buf, err, attr.Key, groupsPrefix)
-		buf.WriteByte(' ')
+		h.appendError(buf, err, attr.Key, groupsPrefix)
+		buf.WriteChar(' ')
 	} else {
 		h.appendKey(buf, attr.Key, groupsPrefix)
 		h.appendValue(buf, attr.Value, true)
-		buf.WriteByte(' ')
+		buf.WriteChar(' ')
 	}
 }
 
+// appendKey appends a key to the buffer
 func (h *handler) appendKey(buf *buffer, key, groups string) {
 	buf.WriteStringIf(!h.noColor, ansiFaint)
 	appendString(buf, groups+key, true)
-	buf.WriteByte('=')
+	buf.WriteChar('=')
 	buf.WriteStringIf(!h.noColor, ansiReset)
 }
 
+// appendValue appends a value to the buffer
 func (h *handler) appendValue(buf *buffer, v slog.Value, quote bool) {
 	switch v.Kind() {
 	case slog.KindString:
@@ -396,15 +407,17 @@ func (h *handler) appendValue(buf *buffer, v slog.Value, quote bool) {
 	}
 }
 
-func (h *handler) appendTintError(buf *buffer, err error, attrKey, groupsPrefix string) {
+// appendError appends an error to the buffer
+func (h *handler) appendError(buf *buffer, err error, attrKey, groupsPrefix string) {
 	buf.WriteStringIf(!h.noColor, ansiBrightRedFaint)
 	appendString(buf, groupsPrefix+attrKey, true)
-	buf.WriteByte('=')
+	buf.WriteChar('=')
 	buf.WriteStringIf(!h.noColor, ansiResetFaint)
 	appendString(buf, err.Error(), true)
 	buf.WriteStringIf(!h.noColor, ansiReset)
 }
 
+// appendString appends a string to the buffer
 func appendString(buf *buffer, s string, quote bool) {
 	if quote && needsQuoting(s) {
 		*buf = strconv.AppendQuote(*buf, s)
@@ -413,6 +426,7 @@ func appendString(buf *buffer, s string, quote bool) {
 	}
 }
 
+// needsQuoting returns true if the string needs quoting
 func needsQuoting(s string) bool {
 	if len(s) == 0 {
 		return true
