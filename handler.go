@@ -70,12 +70,12 @@ import (
 const (
 	ansiReset              = "\033[0m"
 	ansiFaint              = "\033[2m"
-	ansiBrightMagentaFaint = "\033[95;2m"
 	ansiResetFaint         = "\033[22m"
 	ansiBrightRed          = "\033[91m"
 	ansiBrightRedFaint     = "\033[91;2m"
 	ansiBrightGreen        = "\033[92m"
 	ansiBrightYellow       = "\033[93m"
+	ansiBrightMagentaFaint = "\033[95;2m"
 )
 
 var (

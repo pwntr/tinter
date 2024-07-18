@@ -2,14 +2,17 @@ package tinter
 
 import "sync"
 
-const maxBufferSize = 16 << 10 // 16 KB
+const (
+	initialBufferSize = 1 << 10  // 1 KB
+	maxBufferSize     = 16 << 10 // 16 KB
+)
 
 type buffer []byte
 
 var bufPool = sync.Pool{
 	New: func() any {
-		b := make(buffer, 0, 1024) // 1 KB initial buffer size
-		return (*buffer)(&b)
+		b := make(buffer, 0, initialBufferSize)
+		return &b
 	},
 }
 
@@ -20,10 +23,9 @@ func newBuffer() *buffer {
 
 // Free resets the buffer and returns it to the pool
 func (b *buffer) Free() {
-	// to reduce peak allocation, return only smaller buffers to the pool.
-	if cap(*b) <= maxBufferSize {
-		*b = (*b)[:0]
-		bufPool.Put(b)
+	if cap(*b) <= maxBufferSize { // to reduce peak allocation, only return smaller buffers to the pool
+		*b = (*b)[:0]  // reset buffer
+		bufPool.Put(b) // return buffer to the pool
 	}
 }
 
