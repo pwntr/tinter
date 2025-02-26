@@ -18,12 +18,15 @@ var faketime = time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 
 func Example() {
 	slog.SetDefault(slog.New(NewHandler(os.Stderr, &Options{
-		Level:      slog.LevelDebug,
+		Level:      slog.LevelDebug - 8,
 		TimeFormat: time.Kitchen,
 	})))
 
 	slog.Info("Starting server", "addr", ":8080", "env", "production")
 	slog.Debug("Connected to DB", "db", "myapp", "host", "localhost:5432")
+	slog.Log(context.Background(), slog.LevelDebug-2, "lower than debug, but not yet trace level", "weather", "sunny")
+	slog.Log(context.Background(), slog.LevelDebug-4, "detailed trace message", "fyi", "123")
+	slog.Log(context.Background(), slog.LevelDebug-8, "super verbose trace message", "atomsCounted", "738795")
 	slog.Warn("Slow request", "method", "GET", "path", "/users", "duration", 497*time.Millisecond)
 	slog.Error("DB connection lost", "err", errors.New("connection reset"), "db", "myapp")
 	slog.Error("Flux capacitor gone", slog.Any("fail", errors.New("arbitrary error passed")), "engine", 42)
@@ -54,6 +57,12 @@ func TestHandler(t *testing.T) {
 				l.Error("test", "err", errors.New("fail"))
 			},
 			Want: `Nov 10 23:00:00.000 ERR test err=fail`,
+		},
+		{
+			F: func(l *slog.Logger) {
+				l.Log(context.Background(), slog.LevelDebug-4, "test trace level")
+			},
+			Want: `Nov 10 23:00:00.000 TRC test trace level`,
 		},
 		{
 			F: func(l *slog.Logger) {

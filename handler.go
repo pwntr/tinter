@@ -290,6 +290,11 @@ func (h *handler) appendTime(buf *buffer, t time.Time) {
 // appendLevel appends a level to the buffer
 func (h *handler) appendLevel(buf *buffer, level slog.Level) {
 	switch {
+	case level <= slog.LevelDebug-4:
+		buf.WriteStringIf(!h.noColor, ansiFaint)
+		buf.WriteString("TRC")
+		appendLevelDelta(buf, level-slog.LevelDebug+4)
+		buf.WriteStringIf(!h.noColor, ansiReset)
 	case level < slog.LevelInfo:
 		buf.WriteStringIf(!h.noColor, ansiBrightMagentaFaint)
 		buf.WriteString("DBG")
